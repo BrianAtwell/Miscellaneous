@@ -1,0 +1,21 @@
+#User Plugins
+'C:\\Users\\Brian\\AppData\\Roaming\\GIMP\\2.10\\plug-ins'
+
+#How to launch plugin fronm Console
+import sys
+sys.path.append('C:\\Users\\Brian\\AppData\\Roaming\\GIMP\\2.10\\plug-ins')
+import select_move_layers_preview
+
+pluginObj=select_move_layers_preview.pySelectMoveLayers()
+dialogObj=pluginObj.py_select_move_layers_debug()
+
+#To reload (reimport)
+reload(select_move_layers_preview)
+pluginObj=select_move_layers_preview.pySelectMoveLayers()
+dialogObj=pluginObj.py_select_move_layers_debug()
+
+#Get First image
+gimp.image_list()[0]
+
+#Get Selection from first image
+curSelection=pdb.gimp_image_get_selection(gimp.image_list()[0])

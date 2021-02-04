@@ -1,0 +1,13 @@
+
+pdb.gimp_image_get_selection(gimp.image_list()[0])
+pdb.gimp_selection_bounds(gimp.image_list()[0])
+pdb.gimp_image_get_filename(gimp.image_list()[0])
+
+import sys
+sys.path.append('C:\\Users\\Brian\\AppData\\Roaming\\GIMP\\2.10\\plug-ins')
+
+
+
+reload(edit_libgdx_atlas)
+myplugin=edit_libgdx_atlas.pyEditLibGDXAtlas()
+dialog=myplugin.py_edit_libgdx_debug()

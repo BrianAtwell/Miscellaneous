@@ -1,0 +1,18 @@
+
+#Open Python-fu console and paste the following
+# the following uses select_move_layers_preview
+# remember scripts can't contain '-'
+import sys
+sys.path.append('C:\\Users\\Brian\\AppData\\Roaming\\GIMP\\2.10\\plug-ins')
+import select_move_layers_preview
+
+#python fu basic plugin
+
+#Get first image
+#gimp.image_list()[0]
+
+#python class based plugin
+pluginObj=select_move_layers_preview.pySelectMoveLayers()
+pluginObj.query()
+pluginObj.py_select_move_layers(0, gimp.image_list()[0], None, 0, 0)
+pluginObj.py_select_move_layers_debug()
