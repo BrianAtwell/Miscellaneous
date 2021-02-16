@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Work In Progress
 #
 # python Edit Libgdx atlas with selection rect tool
 # version-1.0 12/21/2020
@@ -49,7 +50,7 @@ INDENTATIONSTR = "  "
 DEBUG=True
 
 if DEBUG:
-	sys.stderr = open('C:/temp/edit_libgdx_atlas_debug.xt','a')
+	sys.stderr = open('C:/temp/edit_libgdx_atlas_debug.txt','a')
 	sys.stdout=sys.stderr # So that they both go to the same file
 
 def error_box(text):
@@ -76,21 +77,46 @@ def warning_normal(text):
 def testProcess(layer):
 	time.sleep(1)
 	
+class FilePaths:
+	
+	@staticmethod
+	def countOccurances(targetStr, targetChar):
+		count=0
+		for curChar in targetStr:
+			if curChar == targetChar:
+				count+=1
+		return count
+
+	@staticmethod
+	def fileNameOnly(pathStr):
+		resultStr=""
+		backSlashCnt=FilePaths.countOccurances(pathStr, '\\')
+		forwardSlashCnt=FilePaths.countOccurances(pathStr, '\/')
+		
+		if backSlashCnt > forwardSlashCnt:
+			idx=pathStr.rfind('\\')
+			resultStr=pathStr[idx+1:]
+		else:
+			idx=pathStr.rfind('\/')
+			resultStr=pathStr[idx+1:]
+		return resultStr
+	
 class FileDialogManager(object):
 
-	def __init__(self):
+	def __init__(self, window):
 		self.fileName=None
+		self.window=window
 		
 	def openFile(self):
 		localFileName=None
 		dialog = gtk.FileChooserDialog(
-			title="Please choose a file", parent=self, action=gtk.FileChooserAction.OPEN
+			title="Please choose a file", parent=self.window, action=gtk.FileChooserAction(0)
 		)
 		dialog.add_buttons(
 			gtk.STOCK_CANCEL,
-			gtk.ResponseType.CANCEL,
+			gtk.ResponseType(-6),
 			gtk.STOCK_OPEN,
-			gtk.ResponseType.OK,
+			gtk.ResponseType(-5),
 		)
 		
 		if self.fileName is not None:
@@ -99,10 +125,12 @@ class FileDialogManager(object):
 		self.add_filters(dialog)
 
 		response = dialog.run()
-		if response == gtk.ResponseType.OK:
+		## gtk.ResponseType(-5) == GTK_RESPONSE_OK
+		if response == gtk.ResponseType(-5):
 			self.fileName = dialog.get_filename()
 			localFileName = self.fileName
-		elif response == gtk.ResponseType.CANCEL:
+		## gtk.ResponseType(-6) == GTK_RESPONSE_CANCEL
+		elif response == gtk.ResponseType(-6):
 			print("Cancel clicked")
 
 		dialog.destroy()
@@ -111,13 +139,13 @@ class FileDialogManager(object):
 	def saveFile(self):
 		localFileName=None
 		dialog = gtk.FileChooserDialog(
-			title="Please choose a file", parent=self, action=gtk.FileChooserAction.SAVE
+			title="Please choose a file", parent=self.window, action=gtk.FileChooserAction(1)
 		)
 		dialog.add_buttons(
 			gtk.STOCK_CANCEL,
-			gtk.ResponseType.CANCEL,
+			gtk.ResponseType(-6),
 			gtk.STOCK_OPEN,
-			gtk.ResponseType.OK,
+			gtk.ResponseType(-5),
 		)
 		
 		if self.fileName is not None:
@@ -126,10 +154,12 @@ class FileDialogManager(object):
 		self.add_filters(dialog)
 
 		response = dialog.run()
-		if response == gtk.ResponseType.OK:
+		## gtk.ResponseType(-5) == GTK_RESPONSE_OK
+		if response == gtk.ResponseType(-5):
 			self.fileName = dialog.get_filename()
 			localFileName = self.fileName
-		elif response == gtk.ResponseType.CANCEL:
+		## gtk.ResponseType(-6) == GTK_RESPONSE_CANCEL
+		elif response == gtk.ResponseType(-6):
 			print("Cancel clicked")
 
 		dialog.destroy()
@@ -137,11 +167,11 @@ class FileDialogManager(object):
 		
 	def add_filters(self, dialog):
 		filter_text = gtk.FileFilter()
-		filter_text.set_name("Text files")
-		filter_any.add_pattern("*.atlas")
+		filter_text.set_name("Atlas files")
+		filter_text.add_pattern("*.atlas")
 		dialog.add_filter(filter_text)
 		
-		filter_any = Gtk.FileFilter()
+		filter_any = gtk.FileFilter()
 		filter_any.set_name("Any files")
 		filter_any.add_pattern("*")
 		dialog.add_filter(filter_any)
@@ -271,18 +301,18 @@ class ReaderLibGDXAtlas(object):
 						
 	
 class SubtextureInfo(object):
-	def __init__(self):
-		self.name=""
+	def __init__(self, name="", index=0, x=0, y=0, width=0, height=0):
+		self.name=name
 		self.rotate=False
-		self.xy=(0,0)
-		self.size=(0,0)
-		self.orig=(0,0)
+		self.xy=(x,y)
+		self.size=(width,height)
+		self.orig=(width,height)
 		self.offset=(0,0)
-		self.index=0
+		self.index=index
 		
 	def __str__(self):
 		outStr = self.name + "\n"
-		outStr += INDENTATIONSTR + "rotate: " + str(self.rotate) + "\n"
+		outStr += INDENTATIONSTR + "rotate: " + str(self.rotate).lower() + "\n"
 		outStr += INDENTATIONSTR + "xy: " + str(self.xy[0]) + ", " + str(self.xy[1]) + "\n"
 		outStr += INDENTATIONSTR + "size: " + str(self.size[0]) + ", " + str(self.size[1]) + "\n"
 		outStr += INDENTATIONSTR + "orig: " + str(self.orig[0]) + ", " + str(self.orig[1]) + "\n"
@@ -290,13 +320,14 @@ class SubtextureInfo(object):
 		outStr += INDENTATIONSTR + "index: " + str(self.index) + "\n"
 		return outStr
 	
+
 class TextureLibGDXAtlas(object):
 	def __init__(self):
 		self.subtextures={}
 		self.fileName=""
 		self.size=(0,0)
 		self.format="RGBA8888"
-		self.filter="Nearest,Nearest"
+		self.filter=("Nearest","Nearest")
 		self.repeat="none"
 		
 	def __str__(self):
@@ -311,6 +342,15 @@ class TextureLibGDXAtlas(object):
 				outStr += str(subtexture)
 		
 		return outStr
+		
+	def clear(self):
+		for key in self.subtextures:
+			for item in self.subtextures[key]:
+				if type(item) is list:
+					item.clear()
+		self.subtextures.clear()
+					
+
 
 class ProgressThread(Thread):
 	def __init__(self, stopFunc, processFunc, layerList, progressDialog): 
@@ -380,8 +420,9 @@ class edit_libgdx_atlas(object):
 		self.img = img
 		self.drawable = drawable
 		self.shelfkey = 'layerfx-drop-shadow'
-		self.fileDialog=FileDialogManager()
+		self.fileDialog=None
 		self.textureAtlases=[]
+		self.textureIdx=0
 		self.thread=None
 		self.origActiveLayer=None
 		self.userSelectionChan=None
@@ -483,15 +524,51 @@ class edit_libgdx_atlas(object):
 			self.setPreviewLayer(pdb.gimp_image_get_active_layer(self.img), widget)
 		except Exception as exp:
 			error_box("Exception: "+str(exp))
+	
+	def buttonSaveListData(self, widget, data=None):
+		tempSub = SubtextureInfo(self.nameEntry.get_text(), 
+			int(self.indexSpinner['adj'].get_value()), 
+			int(self.xSpinner['adj'].get_value()),
+			int(self.ySpinner['adj'].get_value()),
+			int(self.widthSpinner['adj'].get_value()),
+			int(self.heightSpinner['adj'].get_value()))
+		self.saveRowToListStore(self.textureIdx, tempSub)
+		
+	def clearData(self):
+		for item in self.textureAtlases:
+			item.clear()
+		self.listStore.clear()
+		pass
+		
+	def buttonClearListData(self, widget, data=None):
+		self.clearData()
+		
+	def onTreeViewSelectChange(self, treeSelection):
+		(treemodel, treeIter) = treeSelection.get_selected()
+		if treeIter is not None:
+			modelRow = treemodel[treeIter]
+			self.nameEntry.set_text(modelRow[0])
+			self.indexSpinner['adj'].set_value(int(modelRow[1]))
+			self.xSpinner['adj'].set_value(int(modelRow[2]))
+			self.ySpinner['adj'].set_value(int(modelRow[3]))
+			self.widthSpinner['adj'].set_value(int(modelRow[4]))
+			self.heightSpinner['adj'].set_value(int(modelRow[5]))
 			
+		
+	def buttonRemoveListData(self, widget, data=None):
+		treeSelection = self.treeView.get_selection()
+		(treemodel, treeIter) = treeSelection.get_selected()
+		if treeIter is not None:
+			treemodel.remove(treeIter)
+	
 	def buttonLoadSelection(self, widget, data=None):
 		try:
-				isSel, x1, y1, x2, y2  = pdb.gimp_selection_bounds(self.img)
-				if isSel:
-					self.xSpinner['adj'].set_value(x1)
-					self.ySpinner['adj'].set_value(y1)
-					self.widthSpinner['adj'].set_value(abs(x2-x1))
-					self.heightSpinner['adj'].set_value(abs(y2-y1))
+			isSel, x1, y1, x2, y2  = pdb.gimp_selection_bounds(self.img)
+			if isSel:
+				self.xSpinner['adj'].set_value(x1)
+				self.ySpinner['adj'].set_value(y1)
+				self.widthSpinner['adj'].set_value(abs(x2-x1))
+				self.heightSpinner['adj'].set_value(abs(y2-y1))
 		except Exception as exp:
 			error_box("Exception: "+str(exp))
 			
@@ -505,12 +582,56 @@ class edit_libgdx_atlas(object):
 		localFileName = self.fileDialog.saveFile()
 		if localFileName is not None:
 			WriterLibGDXAtlas.writeFile(localFileName, self.textureAtlases)
+			
+	def buttonOnionLayer(self, widget, data=None):
+		pass
+		
+	def saveRowToListStore(self, textureIdx, tempSubtexture):
+		subtextureIdx=0
+		isFound=False
+		
+		if not tempSubtexture.name:
+			return False
+		
+		if len(self.textureAtlases) == 0:
+			textureAtlas=TextureLibGDXAtlas()
+			textureAtlas.fileName=FilePaths.fileNameOnly(pdb.gimp_image_get_filename(self.img))
+			textureAtlas.size=(self.img.width,self.img.height)
+			self.textureAtlases.append(textureAtlas)
+			
+		if tempSubtexture.name in self.textureAtlases[textureIdx].subtextures:
+			for subtexture in self.textureAtlases[textureIdx].subtextures[tempSubtexture.name]:
+				if subtexture.name == tempSubtexture.name and subtexture.index == tempSubtexture.index:
+					isFound=True
+					break
+				subtextureIdx+=1
+		
+		if isFound:
+			isListStoreFound=False
+			self.textureAtlases[textureIdx].subtextures[tempSubtexture.name][subtextureIdx]=tempSubtexture
+			listStoreIndex=0
+			for listItem in self.listStore:
+				if listItem[0] == tempSubtexture.name and listItem[1] == tempSubtexture.index:
+					isListStoreFound=True
+					break
+				listStoreIndex+=1
+			if isListStoreFound:
+				self.listStore[listStoreIndex]=[tempSubtexture.name, tempSubtexture.index, tempSubtexture.xy[0], tempSubtexture.xy[1], tempSubtexture.size[0], tempSubtexture.size[1]]
+			return True
+		else:
+			if tempSubtexture.name not in self.textureAtlases[textureIdx].subtextures:
+				self.textureAtlases[textureIdx].subtextures[tempSubtexture.name] = [tempSubtexture]
+			else:
+				self.textureAtlases[textureIdx].subtextures[tempSubtexture.name].append(tempSubtexture)
+			self.listStore.append ([tempSubtexture.name, tempSubtexture.index, tempSubtexture.xy[0], tempSubtexture.xy[1], tempSubtexture.size[0], tempSubtexture.size[1]])
+			return True
 
 	def showDialog(self):
 		try:
 			#self.dialog = gimpui.Dialog("Move Selection for all Sublayers", "highenddialog")
 			
 			self.dialog = gtk.Window()
+			self.fileDialog=FileDialogManager(self.dialog)
 			self.dialog.connect("destroy", self.main_quit)
 
 			self.table = gtk.Table(10, 3, True)
@@ -598,47 +719,70 @@ class edit_libgdx_atlas(object):
 			
 			#Button Row - List Button Control - Save/Load/Remove from list
 			self.saveListBtn = gtk.Button("Save")
-			#self.saveListBtn.connect("clicked", self.methodname)
+			self.saveListBtn.connect("clicked", self.buttonSaveListData)
 			self.saveListBtn.show()
 			self.table.attach(self.saveListBtn, 0, 1, 7, 8)
 			
-			self.loadListBtn = gtk.Button("Load")
-			#self.loadListBtn.connect("clicked", self.methodname)
-			self.loadListBtn.show()
-			self.table.attach(self.loadListBtn, 1, 2, 7, 8)
+			self.clearListBtn = gtk.Button("Clear List")
+			self.clearListBtn.connect("clicked", self.buttonClearListData)
+			self.clearListBtn.show()
+			self.table.attach(self.clearListBtn, 1, 2, 7, 8)
 			
-			self.removeListBtn = gtk.Button("Remove")
-			#self.removeListBtn.connect("clicked", self.methodname)
+			self.removeListBtn = gtk.Button("Remove Item")
+			self.removeListBtn.connect("clicked", self.buttonRemoveListData)
 			self.removeListBtn.show()
 			self.table.attach(self.removeListBtn, 2, 3, 7, 8)
 			
 			
 			#List view
-			self.listStore = gtk.ListStore(str)
-			self.listStore.append (["PyQt"])
-			self.listStore.append (["Tkinter"])
-			self.listStore.append (["WxPython"])
-			self.listStore.append (["PyGTK"])
-			self.listStore.append (["PySide"])
+			self.listStore = gtk.ListStore(str, int, int, int, int, int )
+			
+			#Test Data to debug with
+			#self.listStore.append (["Walk", 0, 2, 2, 30, 30])
+			#self.listStore.append (["Walk", 1, 42, 2, 30, 30])
+			
+			tempSub = SubtextureInfo("Walk", 0, 2, 3, 24, 30)
+			self.saveRowToListStore(0,tempSub)
+			
+			tempSub = SubtextureInfo("Walk", 1, 42, 3, 30, 24)
+			self.saveRowToListStore(0,tempSub)
 			
 			self.treeView = gtk.TreeView()
 			self.treeView.set_model(self.listStore)
+			self.treeView.get_selection().connect("changed", self.onTreeViewSelectChange);
 
 			self.rendererText = gtk.CellRendererText()
-			self.column = gtk.TreeViewColumn("Python GUI Libraries", self.rendererText, text=0)
-			self.treeView.append_column(self.column)
-			self.table.attach(self.treeView, 1, 2, 8, 9)
+			self.nameColumn = gtk.TreeViewColumn("Name", gtk.CellRendererText(), text=0)
+			self.indexColumn = gtk.TreeViewColumn("Index", gtk.CellRendererText(), text=1)
+			self.xColumn = gtk.TreeViewColumn("X", gtk.CellRendererText(), text=2)
+			self.yColumn = gtk.TreeViewColumn("Y", gtk.CellRendererText(), text=3)
+			self.widthColumn = gtk.TreeViewColumn("Width", gtk.CellRendererText(), text=4)
+			self.heightColumn = gtk.TreeViewColumn("Height", gtk.CellRendererText(), text=5)
+			self.treeView.append_column(self.nameColumn)
+			self.treeView.append_column(self.indexColumn)
+			self.treeView.append_column(self.xColumn)
+			self.treeView.append_column(self.yColumn)
+			self.treeView.append_column(self.widthColumn)
+			self.treeView.append_column(self.heightColumn)
+			self.table.attach(self.treeView, 0, 3, 8, 9)
 			
-			#Button Row - Load/Save Atlas
+			#Button Row - Load/Save Atlas/Generate Onion Layer
 			self.loadAtlasBtn = gtk.Button("Load Atlas")
 			self.loadAtlasBtn.connect("clicked", self.buttonLoadAtlas)
 			self.loadAtlasBtn.show()
 			self.table.attach(self.loadAtlasBtn, 0, 1, 9, 10)
 			
+			#Button Save Atlas
 			self.saveAtlasBtn = gtk.Button("Save Atlas")
 			self.saveAtlasBtn.connect("clicked", self.buttonSaveAtlas)
 			self.saveAtlasBtn.show()
 			self.table.attach(self.saveAtlasBtn, 1, 2, 9, 10)
+			
+			#Button Generate Onion Layer
+			self.onionLayerBtn = gtk.Button("Generate Onion Layer")
+			self.onionLayerBtn.connect("clicked", self.buttonOnionLayer)
+			self.onionLayerBtn.show()
+			self.table.attach(self.onionLayerBtn, 2, 3, 9, 10)
 			
 			#Window only
 			self.dialog.vbox = gtk.VBox(False, 9)
