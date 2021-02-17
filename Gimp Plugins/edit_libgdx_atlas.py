@@ -35,6 +35,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # ---------------------------------------------------------------------
 
+import gimpcolor
 from gimpfu import *
 import gimp, gimpplugin, math
 from gimpenums import *
@@ -44,6 +45,7 @@ from gimpshelf import shelf
 import sys
 from threading import Thread
 import gobject, glib
+import random
 
 INDENTATIONSTR = "  "
 
@@ -533,6 +535,7 @@ class edit_libgdx_atlas(object):
 			int(self.widthSpinner['adj'].get_value()),
 			int(self.heightSpinner['adj'].get_value()))
 		self.saveRowToListStore(self.textureIdx, tempSub)
+		self.updatePreviewLayer(widget)
 		
 	def clearData(self):
 		for item in self.textureAtlases:
@@ -1024,12 +1027,46 @@ class edit_libgdx_atlas(object):
 		pdb.gimp_image_undo_group_end(self.img)
 				
 	def updatePreviewLayer(self, widget, data=None):
+		#delete old layer
+		if self.layer_exists(self.previewLayer):
+			pdb.gimp_item_delete(self.previewLayer)
+		#generate layer
+		#( image,
+		#  width, 
+		#  height, 
+		#  Type { RGB-IMAGE (0), RGBA-IMAGE (1), GRAY-IMAGE (2), GRAYA-IMAGE (3), INDEXED-IMAGE (4), INDEXEDA-IMAGE (5) },
+		#  layer Name,
+		#  The layer opacity (0 <= opacity <= 100),
+		"""  The layer combination mode { LAYER-MODE-NORMAL-LEGACY (0), LAYER-MODE-DISSOLVE (1), LAYER-MODE-BEHIND-LEGACY (2), LAYER-MODE-MULTIPLY-LEGACY (3), LAYER-MODE-SCREEN-LEGACY (4), LAYER-MODE-OVERLAY-LEGACY (5), LAYER-MODE-DIFFERENCE-LEGACY (6), LAYER-MODE-ADDITION-LEGACY (7), LAYER-MODE-SUBTRACT-LEGACY (8), LAYER-MODE-DARKEN-ONLY-LEGACY (9), LAYER-MODE-LIGHTEN-ONLY-LEGACY (10), LAYER-MODE-HSV-HUE-LEGACY (11), LAYER-MODE-HSV-SATURATION-LEGACY (12), LAYER-MODE-HSL-COLOR-LEGACY (13), LAYER-MODE-HSV-VALUE-LEGACY (14), LAYER-MODE-DIVIDE-LEGACY (15), LAYER-MODE-DODGE-LEGACY (16), LAYER-MODE-BURN-LEGACY (17), LAYER-MODE-HARDLIGHT-LEGACY (18), LAYER-MODE-SOFTLIGHT-LEGACY (19), LAYER-MODE-GRAIN-EXTRACT-LEGACY (20), LAYER-MODE-GRAIN-MERGE-LEGACY (21), LAYER-MODE-COLOR-ERASE-LEGACY (22), LAYER-MODE-OVERLAY (23), LAYER-MODE-LCH-HUE (24), LAYER-MODE-LCH-CHROMA (25), LAYER-MODE-LCH-COLOR (26), LAYER-MODE-LCH-LIGHTNESS (27), LAYER-MODE-NORMAL (28), LAYER-MODE-BEHIND (29), LAYER-MODE-MULTIPLY (30), LAYER-MODE-SCREEN (31), LAYER-MODE-DIFFERENCE (32), LAYER-MODE-ADDITION (33), LAYER-MODE-SUBTRACT (34), LAYER-MODE-DARKEN-ONLY (35), LAYER-MODE-LIGHTEN-ONLY (36), LAYER-MODE-HSV-HUE (37), LAYER-MODE-HSV-SATURATION (38), LAYER-MODE-HSL-COLOR (39), LAYER-MODE-HSV-VALUE (40), LAYER-MODE-DIVIDE (41), LAYER-MODE-DODGE (42), LAYER-MODE-BURN (43), LAYER-MODE-HARDLIGHT (44), LAYER-MODE-SOFTLIGHT (45), LAYER-MODE-GRAIN-EXTRACT (46), LAYER-MODE-GRAIN-MERGE (47), LAYER-MODE-VIVID-LIGHT (48), LAYER-MODE-PIN-LIGHT (49), LAYER-MODE-LINEAR-LIGHT (50), LAYER-MODE-HARD-MIX (51), LAYER-MODE-EXCLUSION (52), LAYER-MODE-LINEAR-BURN (53), LAYER-MODE-LUMA-DARKEN-ONLY (54), LAYER-MODE-LUMA-LIGHTEN-ONLY (55), LAYER-MODE-LUMINANCE (56), LAYER-MODE-COLOR-ERASE (57), LAYER-MODE-ERASE (58), LAYER-MODE-MERGE (59), LAYER-MODE-SPLIT (60), LAYER-MODE-PASS-THROUGH (61), LAYER-MODE-REPLACE (62), LAYER-MODE-ANTI-ERASE (63) })
+		"""
+		#(image, image width, image height, RGB-Image, "Preview Onion Layer", 100% full Opacity, Normal Mode)
+		self.previewLayer = pdb.gimp_layer_new(self.img, self.img.width, self.img.height, 1, "Preview Onion Layer", 50.0, 28)
+		pdb.gimp_image_insert_layer(self.img, self.previewLayer, None,0)
+		##Read Each subtexture and convert to a rectangle
+		texture=self.textureAtlases[self.textureIdx]
+		bngColor = pdb.gimp_context_get_background()
+		for key in texture.subtextures:
+			for subtexture in texture.subtextures[key]:
+				#Replace Selection
+				pdb.gimp_selection_none(self.img)
+				selection=pdb.gimp_image_select_rectangle(self.img, 2, int(subtexture.xy[0]), int(subtexture.xy[1]), int(subtexture.size[0]), int(subtexture.size[1]))
+				fillColor=gimpcolor.RGB(random.randrange(0, 255),random.randrange(0, 255),random.randrange(0, 255))
+				pdb.gimp_context_set_background(fillColor)
+				pdb.gimp_drawable_edit_fill(self.previewLayer, 1)
+		pdb.gimp_selection_none(self.img)
+		pdb.gimp_context_set_background(bngColor)
+		gimp.displays_flush()
+		
+		
+		#Old Implementation
+		"""
 		if self.layer_exists(self.previewLayer):
 			self.updateTransformFromGUI()
 			pdb.gimp_image_undo_freeze(self.img)
 			self.previewLayer.set_offsets(self.previewPos[0]+self.xdelta, self.previewPos[1]+self.ydelta)
 			pdb.gimp_image_undo_thaw(self.img)
 			gimp.displays_flush()
+		"""
 
 
 	def makePreviewLayer(self, img, layer):
