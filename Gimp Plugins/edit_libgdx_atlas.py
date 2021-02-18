@@ -351,70 +351,7 @@ class TextureLibGDXAtlas(object):
 				if type(item) is list:
 					item.clear()
 		self.subtextures.clear()
-					
 
-
-class ProgressThread(Thread):
-	def __init__(self, stopFunc, processFunc, layerList, progressDialog): 
-		Thread.__init__(self) 
-		self.layerList=layerList
-		self.stopFunc=stopFunc
-		self.processFunc=processFunc
-		self.progressDialog=progressDialog
-		self.threadNotifyType=1
-		
-	def updateStartProcess(self):
-		if self.threadNotifyType == 1:
-			gtk.threads_enter()
-			self.progressDialog.progressStarted()
-			gtk.threads_leave()
-		else:
-			glib.idle_add(self.progressDialog.progressStarted)
-		
-	def updateProgressDialog(self, count, totalLen, progress, layerName):
-		if self.threadNotifyType == 1:
-			gtk.threads_enter()
-			self.progressDialog.updateProgess(count, totalLen, progress, layerName)
-			gtk.threads_leave()
-		else:
-			glib.idle_add(self.progressDialog.updateProgess, count, totalLen, progress, layerName)
-		
-	def updateFinishProgress(self):
-		if self.threadNotifyType == 1:
-			gtk.threads_enter()
-			self.progressDialog.progressDone()
-			gtk.threads_leave()
-		else:
-			glib.idle_add(self.progressDialog.progressDone)
-	
-	def run(self):
-		if DEBUG:
-			sys.stderr = open('C:/temp/progresstest-thread1.txt','a')
-			sys.stdout=sys.stderr # So that they both go to the same file
-		self.updateStartProcess()
-		try:
-			count=0
-			totalLen=len(self.layerList)
-			for curLayer in self.layerList:
-				if self.stopFunc():
-					break
-				progress=float(count)/float(totalLen)
-				print("Progress: "+str(count)+"/"+str(totalLen)+" "+str(progress))
-				self.processFunc(curLayer)
-				self.updateProgressDialog(count, totalLen, progress, curLayer.name)
-				count+=1
-			if not self.stopFunc():
-				print("Progress: "+str(count)+"/"+str(totalLen)+" "+str(progress))
-				self.updateProgressDialog(count, totalLen, progress, curLayer.name)
-		except Exception as err:
-			print("ProgressThread Exception: "+str(err))
-			self.err = err
-			pass # or raise err
-		else:
-			self.err = None
-		self.updateFinishProgress()
-		print("ProgressThread: End of run")
-	
 class edit_libgdx_atlas(object):
 	
 	def __init__(self, runmode, img, drawable):
@@ -437,96 +374,13 @@ class edit_libgdx_atlas(object):
 		self.stop_signal=False
 		self.isRunning=True
 		self.selectionData={}
-		self.processSelection()
 		self.showDialog()
-		
-	def do_thread_finished(self, args):
-		self.window.destroy()
 		
 	def findFirstVisibleLayer(self, groupLayer):
 		for layer in groupLayer.children:
 			if layer.visible:
 				return layer
 		return None
-		
-	def processSelection(self):
-		"""
-		pdb.gimp_image_undo_freeze(self.img)
-		self.origActiveLayer=pdb.gimp_image_get_active_layer(self.img)
-		
-		if type(self.origActiveLayer) == gimp.GroupLayer:
-			self.userGroupLayer=self.origActiveLayer
-				
-		
-		if not pdb.gimp_selection_is_empty(self.img):
-			curSelection=pdb.gimp_image_get_selection(self.img)
-			self.selectionData["width"]=curSelection.width
-			self.selectionData["height"]=curSelection.height
-			self.userSelectionChan = pdb.gimp_selection_save(self.img)
-		pdb.gimp_image_undo_thaw(self.img)
-		"""
-		
-	def postDialogProcessing(self):
-		"""
-		if type(self.userGroupLayer) == gimp.GroupLayer:
-			firstVisible=self.findFirstVisibleLayer(self.userGroupLayer)
-			#Finish setting up 
-			if firstVisible is not None and type(firstVisible) == gimp.Layer:
-				self.setPreviewLayer(firstVisible, self.previewLayerButton)
-		"""
-		"""
-		if type(self.userGroupLayer) == gimp.GroupLayer:
-			self.setPreviewLayer(self.userGroupLayer, self.previewLayerButton)
-		"""
-		
-	def setPreviewLayer(self, userLayer, widget):
-		try:
-			if not self.layer_exists(self.previewLayer):
-				oldPreviewLayer = self.userPreviewLayer
-				self.userPreviewLayer=userLayer
-			
-				if type(self.userPreviewLayer) == gimp.Layer:
-					self.previewLayerViewer.set_text(self.userPreviewLayer.name)
-					self.previewButton(widget)
-				else:
-					warning_normal("Please select a layer!")
-					if type(oldPreviewLayer) == gimp.Layer:
-						self.userPreviewLayer = oldPreviewLayer
-		except Exception as exp:
-			error_box("Exception: "+str(exp))
-	
-	def buttonSelectionSelected(self, widget, data=None):
-		try:
-			if not pdb.gimp_selection_is_empty(self.img):
-				curSelection=pdb.gimp_image_get_selection(self.img)
-				self.selectionData["width"]=curSelection.width
-				self.selectionData["height"]=curSelection.height
-				self.selectionChan = pdb.gimp_selection_save(self.img)
-				self.selectionChanViewer.set_text("Selected")
-			else:
-				self.selectionChanViewer.set_text("")
-		except Exception as exp:
-			error_box("Exception: "+str(exp))
-	
-	def buttonSelectLayerSelected(self, widget, data=None):
-		try:
-			oldGroupLayer = self.userGroupLayer
-			self.userGroupLayer=pdb.gimp_image_get_active_layer(self.img)
-		
-			if type(self.userGroupLayer) == gimp.GroupLayer:
-				self.selectedLayerViewer.set_text(self.userGroupLayer.name)
-			else:
-				warning_normal("Please select a Group Layer!")
-				if type(oldGroupLayer) == gimp.GroupLayer:
-					self.userGroupLayer = oldGroupLayer
-		except Exception as exp:
-			error_box("Exception: "+str(exp))
-		
-	def buttonPreviewLayerSelected(self, widget, data=None):
-		try:
-			self.setPreviewLayer(pdb.gimp_image_get_active_layer(self.img), widget)
-		except Exception as exp:
-			error_box("Exception: "+str(exp))
 	
 	def buttonSaveListData(self, widget, data=None):
 		tempSub = SubtextureInfo(self.nameEntry.get_text(), 
@@ -821,67 +675,16 @@ class edit_libgdx_atlas(object):
 			self.dialog.vbox.pack_start(self.dialog.vbox.hbox1, True, True, 9)
 			self.dialog.vbox.hbox1.pack_start(self.table, True, True, 9)
 			
-			"""
-			self.dialog.progressbar = gtk.ProgressBar()
-			self.dialog.progressbar.show()
-			self.dialog.vbox.pack_start(self.dialog.progressbar, True, True, 9)
-
-			self.reset_button = gtk.Button("_Reset")
-			self.reset_button.connect("clicked", self.resetbutton)
-			self.reset_button.show()
-
-			self.preview_button = gtk.Button("Preview")
-			self.preview_button.connect("clicked", self.previewButton)
-			self.preview_button.set_size_request(110, -1)
-			self.preview_button.show()
-			
-			self.ok_button = gtk.Button("Ok")
-			self.ok_button.show()
-			"""
-			
 			#Window only
 			self.dialog.vbox.hboxButtons = gtk.HBox(False, 3)
 			self.dialog.vbox.hboxButtons.show()
 			
-			"""
-			self.ok_button.connect("clicked", self.okbutton)
-			
-			self.cancel_button = gtk.Button("Cancel")
-			self.cancel_button.connect("clicked", self.main_quit)
-			self.cancel_button.show()
-			
-			self.dialog.vbox.hboxButtons.pack_start(self.ok_button, True, True, 3)
-			self.dialog.vbox.hboxButtons.pack_start(self.cancel_button, True, True, 3)
-			self.dialog.vbox.hboxButtons.pack_start(self.reset_button, True, True, 3)
-			self.dialog.vbox.hboxButtons.pack_start(self.preview_button, True, True, 3)
-			"""
-			
 			self.dialog.vbox.pack_start(self.dialog.vbox.hboxButtons, True, True, 3)
 			
-			#Dialog only
-			"""
-			if gtk.alternative_dialog_button_order():
-				#self.ok_button = self.dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
-				self.dialog.action_area.add(self.ok_button)
-				self.cancel_button = self.dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-				self.dialog.action_area.add(self.reset_button)
-				self.dialog.action_area.add(self.preview_button)
-			else:
-				self.dialog.action_area.add(self.preview_button)
-				self.dialog.action_area.add(self.reset_button)
-				self.cancel_button = self.dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-				#self.ok_button = self.dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
-				self.dialog.action_area.add(self.ok_button)
-			
-			self.dialog.show()
-			"""
 			self.dialog.show_all()
 			self.dialog.set_keep_above(True)
-			self.postDialogProcessing()
 			while self.isRunning:
 				gtk.main_iteration_do(False)
-			if self.thread is not None:
-				self.thread.join()
 			if self.runmode != -1:
 				#self.dialog.run()
 				#gtk.main()
@@ -892,241 +695,61 @@ class edit_libgdx_atlas(object):
 	def destroy(self):
 		self.cleanUp()
 		self.dialog.destroy()
-
-	def okbutton(self, widget):
-		# remove old preview layer if it exists
-		self.removePreviews()
-		"""
-		if self.layer_exists(self.previewLayer):
-			self.img.remove_layer(self.previewLayer)
-			self.previewLayer = None
-		"""
-			
-		self.updateTransformFromGUI()
-		
-		self.perform_on_sublayers(self.userGroupLayer)
-		
-	def updateProgess(self, count, total, progress, layerName):
-		#self.dialog.progressbar.pulse()
-		self.dialog.progressbar.set_fraction(progress)
-		self.dialog.progressbar.set_text(str(count)+"/"+str(total)+" "+layerName)
-		return False
-	
-	def progressStarted(self):
-		pdb.gimp_image_undo_group_start(self.img)
-		
-	def progressDone(self):
-		pdb.gimp_image_undo_group_end(self.img)
-		self.isRunning=False
-		#self.window.destroy()
 		
 	def main_quit(self, gtkobject, data=None):
-		self.stop_signal=True
 		self.isRunning=False
-		#self.thread.join()
-		#gtk.main_quit()
-
-
-	def resetbutton(self, widget):
-		self.strength_spinner['adj'].set_value(10.0)
-		self.flatten_check.set_active(True)
-
-	def updateTransformFromGUI(self):
-		self.xdelta = int(self.x_transform_spinner['adj'].get_value())
-		self.ydelta = int(self.y_transform_spinner['adj'].get_value())
-
-	def previewButton(self, widget):
-		ptxt = self.preview_button.get_label()
-
-		if self.layer_exists(self.previewLayer):
-			#Remove Preview
-			self.img.remove_layer(self.previewLayer)
-			gimp.displays_flush()
-			self.previewLayerButton.set_sensitive(True)
-	
-		else:
-			self.updateTransformFromGUI()
-			#Add/Update Preview
-			lPreviewLayer=None
-			if self.userPreviewLayer is not None:
-				self.previewLayer = self.makePreviewLayer(self.img, self.userPreviewLayer)
-				self.previewLayerButton.set_sensitive(False)
-
-
-		if ptxt == "Preview":
-			ptxt = "Undo Preview"
-		else:
-			ptxt = "Preview"
-		self.preview_button.set_label(ptxt)
-		
-	def make_list_of_sublayers(self, applyLayer):
-		curList=[]
-		for curLayer in applyLayer.children:
-			try:
-				if isinstance(curLayer, gimp.GroupLayer):
-					curList.extend(self.make_list_of_sublayers(curLayer))
-				else:
-					curList.append(curLayer)
-			except Exception as exp:
-					error_box("Exception: "+str(exp))
-		return curList
-		
-	def perform_on_single_layer(self, curLayer):
-		try:
-			#Apply to each layer
-			#origVis=pdb.gimp_layer_get_visible(curLayer)
-			
-			#Set each layer as active
-			pdb.gimp_image_set_active_layer(self.img, curLayer)
-			
-			#Apply selection
-			pdb.gimp_image_select_item(self.img, 2, self.userSelectionChan)
-			
-			#Preform Cut
-			pdb.gimp_edit_cut(curLayer)
-			floatLayer=pdb.gimp_edit_paste(curLayer, True)
-			
-			#Preform Move
-			#transform_2d(source_x, source_y, scale_x, scale_y, angle, dest_x, dest_y, transform_direction, interpolation)
-			#floatLayer.set_offsets(self.xdelta, self.ydelta)
-			floatLayer = floatLayer.transform_2d(0, 0, 1, 1, 0, self.xdelta, self.ydelta, 0, 0)
-			
-			#Preform Anchor
-			pdb.gimp_floating_sel_anchor(floatLayer)
-			
-			#Restore Visibility
-			#pdb.gimp_layer_set_visible(curLayer,origVis)
-		except Exception as exp:
-			error_box("Exception: "+str(exp))
-		
-	def perform_on_sublayers(self, applyLayer):
-		layerList = self.make_list_of_sublayers(applyLayer)
-		#pdb.gimp_image_undo_group_start(self.img)
-		#progressDialog = ProgressDialog()
-		#progressDialog.showDialog(layerList, self.perform_on_single_layer)
-		#progressDialog.showDialog(layerList, testProcess)
-		
-		#gtk.threads_init()		
-		self.thread = ProgressThread(lambda : self.stop_signal, self.perform_on_single_layer, layerList, self)
-		self.thread.daemon = True
-		self.thread.start()
-		
-		#pdb.gimp_image_undo_group_end(self.img)
-					
-	def perform_on_alllayers(self, applyLayer):
-		pdb.gimp_image_undo_group_start(self.img)
-		for curLayer in applyLayer.children:
-			if isinstance(curLayer, gimp.GroupLayer):
-				try:
-					self.perform_on_alllayers(curLayer)
-				except Exception as exp:
-					error_box("Exception: "+str(exp))
-			else:
-				try:
-					#Apply to each layer
-					#origVis=pdb.gimp_layer_get_visible(curLayer)
-					
-					#Set each layer as active
-					pdb.gimp_image_set_active_layer(self.img, curLayer)
-					
-					#Apply selection
-					pdb.gimp_image_select_item(self.img, 2, self.userSelectionChan)
-					
-					#Preform Cut
-					pdb.gimp_edit_cut(curLayer)
-					floatLayer=pdb.gimp_edit_paste(curLayer, True)
-					
-					#Preform Move
-					#transform_2d(source_x, source_y, scale_x, scale_y, angle, dest_x, dest_y, transform_direction, interpolation)
-					#floatLayer.set_offsets(self.xdelta, self.ydelta)
-					floatLayer = floatLayer.transform_2d(0, 0, 1, 1, 0, self.xdelta, self.ydelta, 0, 0)
-					
-					#Preform Anchor
-					pdb.gimp_floating_sel_anchor(floatLayer)
-					
-					#Restore Visibility
-					#pdb.gimp_layer_set_visible(curLayer,origVis)
-				except Exception as exp:
-					error_box("Exception: "+str(exp))
-		pdb.gimp_image_undo_group_end(self.img)
 				
 	def updatePreviewLayer(self, widget, data=None):
 		self.previewLayer=self.generateOnionLayer(self.previewLayer, "Preview Layer", self.textureAtlases, self.textureIdx)
 	
 	def generateOnionLayer(self, onionLayer, layerName, textureAtlases, textureIdx):
-		#Save active layer
-		activeLayer=pdb.gimp_image_get_active_layer(self.img)
-		#Save selection
-		origSelectionChan=pdb.gimp_selection_save(self.img)
-		
-		
-		#delete old layer
-		if self.layer_exists(onionLayer):
-			pdb.gimp_item_delete(onionLayer)
-		#generate layer
-		#( image,
-		#  width, 
-		#  height, 
-		#  Type { RGB-IMAGE (0), RGBA-IMAGE (1), GRAY-IMAGE (2), GRAYA-IMAGE (3), INDEXED-IMAGE (4), INDEXEDA-IMAGE (5) },
-		#  layer Name,
-		#  The layer opacity (0 <= opacity <= 100),
-		"""  The layer combination mode { LAYER-MODE-NORMAL-LEGACY (0), LAYER-MODE-DISSOLVE (1), LAYER-MODE-BEHIND-LEGACY (2), LAYER-MODE-MULTIPLY-LEGACY (3), LAYER-MODE-SCREEN-LEGACY (4), LAYER-MODE-OVERLAY-LEGACY (5), LAYER-MODE-DIFFERENCE-LEGACY (6), LAYER-MODE-ADDITION-LEGACY (7), LAYER-MODE-SUBTRACT-LEGACY (8), LAYER-MODE-DARKEN-ONLY-LEGACY (9), LAYER-MODE-LIGHTEN-ONLY-LEGACY (10), LAYER-MODE-HSV-HUE-LEGACY (11), LAYER-MODE-HSV-SATURATION-LEGACY (12), LAYER-MODE-HSL-COLOR-LEGACY (13), LAYER-MODE-HSV-VALUE-LEGACY (14), LAYER-MODE-DIVIDE-LEGACY (15), LAYER-MODE-DODGE-LEGACY (16), LAYER-MODE-BURN-LEGACY (17), LAYER-MODE-HARDLIGHT-LEGACY (18), LAYER-MODE-SOFTLIGHT-LEGACY (19), LAYER-MODE-GRAIN-EXTRACT-LEGACY (20), LAYER-MODE-GRAIN-MERGE-LEGACY (21), LAYER-MODE-COLOR-ERASE-LEGACY (22), LAYER-MODE-OVERLAY (23), LAYER-MODE-LCH-HUE (24), LAYER-MODE-LCH-CHROMA (25), LAYER-MODE-LCH-COLOR (26), LAYER-MODE-LCH-LIGHTNESS (27), LAYER-MODE-NORMAL (28), LAYER-MODE-BEHIND (29), LAYER-MODE-MULTIPLY (30), LAYER-MODE-SCREEN (31), LAYER-MODE-DIFFERENCE (32), LAYER-MODE-ADDITION (33), LAYER-MODE-SUBTRACT (34), LAYER-MODE-DARKEN-ONLY (35), LAYER-MODE-LIGHTEN-ONLY (36), LAYER-MODE-HSV-HUE (37), LAYER-MODE-HSV-SATURATION (38), LAYER-MODE-HSL-COLOR (39), LAYER-MODE-HSV-VALUE (40), LAYER-MODE-DIVIDE (41), LAYER-MODE-DODGE (42), LAYER-MODE-BURN (43), LAYER-MODE-HARDLIGHT (44), LAYER-MODE-SOFTLIGHT (45), LAYER-MODE-GRAIN-EXTRACT (46), LAYER-MODE-GRAIN-MERGE (47), LAYER-MODE-VIVID-LIGHT (48), LAYER-MODE-PIN-LIGHT (49), LAYER-MODE-LINEAR-LIGHT (50), LAYER-MODE-HARD-MIX (51), LAYER-MODE-EXCLUSION (52), LAYER-MODE-LINEAR-BURN (53), LAYER-MODE-LUMA-DARKEN-ONLY (54), LAYER-MODE-LUMA-LIGHTEN-ONLY (55), LAYER-MODE-LUMINANCE (56), LAYER-MODE-COLOR-ERASE (57), LAYER-MODE-ERASE (58), LAYER-MODE-MERGE (59), LAYER-MODE-SPLIT (60), LAYER-MODE-PASS-THROUGH (61), LAYER-MODE-REPLACE (62), LAYER-MODE-ANTI-ERASE (63) })
-		"""
-		#(image, image width, image height, RGB-Image, "Preview Onion Layer", 100% full Opacity, Normal Mode)
-		onionLayer = pdb.gimp_layer_new(self.img, self.img.width, self.img.height, 1, layerName, 50.0, 28)
-		pdb.gimp_image_insert_layer(self.img, onionLayer, None,0)
-		##Read Each subtexture and convert to a rectangle
-		texture=textureAtlases[textureIdx]
-		bngColor = pdb.gimp_context_get_background()
-		for key in texture.subtextures:
-			for subtexture in texture.subtextures[key]:
-				#Replace Selection
-				pdb.gimp_selection_none(self.img)
-				selection=pdb.gimp_image_select_rectangle(self.img, 2, int(subtexture.xy[0]), int(subtexture.xy[1]), int(subtexture.size[0]), int(subtexture.size[1]))
-				fillColor=gimpcolor.RGB(random.randrange(0, 255),random.randrange(0, 255),random.randrange(0, 255))
-				pdb.gimp_context_set_background(fillColor)
-				pdb.gimp_drawable_edit_fill(onionLayer, 1)
-		pdb.gimp_selection_none(self.img)
-		
-		#Restore gimp original state
-		pdb.gimp_context_set_background(bngColor)
-		pdb.gimp_image_set_active_layer(self.img, activeLayer)
-		pdb.gimp_image_select_item(origSelectionChan)
-		pdb.gimp_item_delete(origSelectionChan)
+		try:
+			#Save active layer
+			activeLayer=pdb.gimp_image_get_active_layer(self.img)
+			#Save selection
+			origSelectionChan=pdb.gimp_selection_save(self.img)
+			
+			
+			#delete old layer
+			if self.layer_exists(onionLayer):
+				self.img.remove_layer(onionLayer)
+			#generate layer
+			#( image,
+			#  width, 
+			#  height, 
+			#  Type { RGB-IMAGE (0), RGBA-IMAGE (1), GRAY-IMAGE (2), GRAYA-IMAGE (3), INDEXED-IMAGE (4), INDEXEDA-IMAGE (5) },
+			#  layer Name,
+			#  The layer opacity (0 <= opacity <= 100),
+			"""  The layer combination mode { LAYER-MODE-NORMAL-LEGACY (0), LAYER-MODE-DISSOLVE (1), LAYER-MODE-BEHIND-LEGACY (2), LAYER-MODE-MULTIPLY-LEGACY (3), LAYER-MODE-SCREEN-LEGACY (4), LAYER-MODE-OVERLAY-LEGACY (5), LAYER-MODE-DIFFERENCE-LEGACY (6), LAYER-MODE-ADDITION-LEGACY (7), LAYER-MODE-SUBTRACT-LEGACY (8), LAYER-MODE-DARKEN-ONLY-LEGACY (9), LAYER-MODE-LIGHTEN-ONLY-LEGACY (10), LAYER-MODE-HSV-HUE-LEGACY (11), LAYER-MODE-HSV-SATURATION-LEGACY (12), LAYER-MODE-HSL-COLOR-LEGACY (13), LAYER-MODE-HSV-VALUE-LEGACY (14), LAYER-MODE-DIVIDE-LEGACY (15), LAYER-MODE-DODGE-LEGACY (16), LAYER-MODE-BURN-LEGACY (17), LAYER-MODE-HARDLIGHT-LEGACY (18), LAYER-MODE-SOFTLIGHT-LEGACY (19), LAYER-MODE-GRAIN-EXTRACT-LEGACY (20), LAYER-MODE-GRAIN-MERGE-LEGACY (21), LAYER-MODE-COLOR-ERASE-LEGACY (22), LAYER-MODE-OVERLAY (23), LAYER-MODE-LCH-HUE (24), LAYER-MODE-LCH-CHROMA (25), LAYER-MODE-LCH-COLOR (26), LAYER-MODE-LCH-LIGHTNESS (27), LAYER-MODE-NORMAL (28), LAYER-MODE-BEHIND (29), LAYER-MODE-MULTIPLY (30), LAYER-MODE-SCREEN (31), LAYER-MODE-DIFFERENCE (32), LAYER-MODE-ADDITION (33), LAYER-MODE-SUBTRACT (34), LAYER-MODE-DARKEN-ONLY (35), LAYER-MODE-LIGHTEN-ONLY (36), LAYER-MODE-HSV-HUE (37), LAYER-MODE-HSV-SATURATION (38), LAYER-MODE-HSL-COLOR (39), LAYER-MODE-HSV-VALUE (40), LAYER-MODE-DIVIDE (41), LAYER-MODE-DODGE (42), LAYER-MODE-BURN (43), LAYER-MODE-HARDLIGHT (44), LAYER-MODE-SOFTLIGHT (45), LAYER-MODE-GRAIN-EXTRACT (46), LAYER-MODE-GRAIN-MERGE (47), LAYER-MODE-VIVID-LIGHT (48), LAYER-MODE-PIN-LIGHT (49), LAYER-MODE-LINEAR-LIGHT (50), LAYER-MODE-HARD-MIX (51), LAYER-MODE-EXCLUSION (52), LAYER-MODE-LINEAR-BURN (53), LAYER-MODE-LUMA-DARKEN-ONLY (54), LAYER-MODE-LUMA-LIGHTEN-ONLY (55), LAYER-MODE-LUMINANCE (56), LAYER-MODE-COLOR-ERASE (57), LAYER-MODE-ERASE (58), LAYER-MODE-MERGE (59), LAYER-MODE-SPLIT (60), LAYER-MODE-PASS-THROUGH (61), LAYER-MODE-REPLACE (62), LAYER-MODE-ANTI-ERASE (63) })
+			"""
+			#(image, image width, image height, RGB-Image, "Preview Onion Layer", 100% full Opacity, Normal Mode)
+			onionLayer = pdb.gimp_layer_new(self.img, self.img.width, self.img.height, 1, layerName, 50.0, 28)
+			pdb.gimp_image_insert_layer(self.img, onionLayer, None,0)
+			##Read Each subtexture and convert to a rectangle
+			texture=textureAtlases[textureIdx]
+			bngColor = pdb.gimp_context_get_background()
+			for key in texture.subtextures:
+				for subtexture in texture.subtextures[key]:
+					#Replace Selection
+					pdb.gimp_selection_none(self.img)
+					selection=pdb.gimp_image_select_rectangle(self.img, 2, int(subtexture.xy[0]), int(subtexture.xy[1]), int(subtexture.size[0]), int(subtexture.size[1]))
+					fillColor=gimpcolor.RGB(random.randrange(0, 255),random.randrange(0, 255),random.randrange(0, 255))
+					pdb.gimp_context_set_background(fillColor)
+					pdb.gimp_drawable_edit_fill(onionLayer, 1)
+			pdb.gimp_selection_none(self.img)
+			
+			#Restore gimp original state
+			pdb.gimp_context_set_background(bngColor)
+			pdb.gimp_image_set_active_layer(self.img, activeLayer)
+			pdb.gimp_image_select_item(self.img, 2, origSelectionChan)
+			self.img.remove_channel(origSelectionChan)
+		except Exception as exp:
+			error_box("Exception: "+str(exp))
 		
 		#Update Gimp GUI
 		gimp.displays_flush()
 
 		return onionLayer
-
-
-	def makePreviewLayer(self, img, layer):
-		lNewPreviewLayer=None
-		pdb.gimp_image_undo_freeze(self.img)
-		
-		#Apply selection
-		pdb.gimp_image_select_item(self.img, 2, self.userSelectionChan)
-		
-		#Preform Copy
-		pdb.gimp_edit_copy(layer)
-		floatLayer=pdb.gimp_edit_paste(layer, True)
-		
-		pdb.gimp_floating_sel_to_layer(floatLayer)
-		lNewPreviewLayer = pdb.gimp_image_get_active_layer(img)
-		
-		lNewPreviewLayer.name="(Do Not Edit) Select Move Layers"
-		
-		#Preform Move
-		#transform_2d(source_x, source_y, scale_x, scale_y, angle, dest_x, dest_y, transform_direction, interpolation)
-		#floatLayer=lNewPreviewLayer.transform_2d(curLayer.offsets[0], curLayer.offsets[1], 1, 1, 0, curLayer.offsets[0]+xdelta, curLayer.offsets[1]+ydelta, 0, 0)
-		self.previewPos=floatLayer.offsets
-		lNewPreviewLayer.set_offsets(self.previewPos[0]+self.xdelta, self.previewPos[1]+self.ydelta)
-		
-		#Preform Anchor
-		#pdb.gimp_floating_sel_anchor(floatLayer)
-		pdb.gimp_image_undo_thaw(self.img)
-		gimp.displays_flush()
-		return lNewPreviewLayer
 		
 	def get_layer_pos(self, layer):
 		i = 0
@@ -1144,16 +767,6 @@ class edit_libgdx_atlas(object):
 	def cleanUp(self):
 		print("cleanUp Called")
 		self.removePreviews()
-		pdb.gimp_image_undo_freeze(self.img)
-		if self.userSelectionChan:
-			pdb.gimp_image_remove_channel(self.img, self.userSelectionChan)
-			self.userSelectionChan=None
-		
-		#Restor Original Active Layer
-		if self.origActiveLayer:
-			pdb.gimp_image_set_active_layer(self.img, self.origActiveLayer)
-			self.origActiveLayer=None
-		pdb.gimp_image_undo_thaw(self.img)
 
 	def removePreviews(self):
 		if self.layer_exists(self.previewLayer):
