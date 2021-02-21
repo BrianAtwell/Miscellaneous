@@ -791,6 +791,7 @@ class edit_libgdx_atlas(object):
 		self.previewLayer=self.generateOnionLayer(self.previewLayer, "Preview Layer", self.textureAtlases, self.textureIdx)
 	
 	def generateOnionLayer(self, onionLayer, layerName, textureAtlases, textureIdx):
+		pdb.gimp_image_undo_freeze(self.img)
 		try:
 			#Save active layer
 			activeLayer=pdb.gimp_image_get_active_layer(self.img)
@@ -836,6 +837,7 @@ class edit_libgdx_atlas(object):
 		
 		#Update Gimp GUI
 		gimp.displays_flush()
+		pdb.gimp_image_undo_thaw(self.img)
 
 		return onionLayer
 		
