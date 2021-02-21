@@ -90,7 +90,10 @@ class FilePaths:
 		return count
 
 	@staticmethod
-	def fileNameOnly(pathStr):
+	def fileNameWithExt(pathStr):
+		"""
+			Returns the filename and extension
+		"""
 		resultStr=""
 		backSlashCnt=FilePaths.countOccurances(pathStr, '\\')
 		forwardSlashCnt=FilePaths.countOccurances(pathStr, '\/')
@@ -101,6 +104,34 @@ class FilePaths:
 		else:
 			idx=pathStr.rfind('\/')
 			resultStr=pathStr[idx+1:]
+		return resultStr
+		
+	@staticmethod
+	def fileNameOnly(pathStr):
+		"""
+			Returns the filename without extension
+		"""
+		fileName=FilePaths.fileNameWithExt(pathStr)
+		extIdx=fileName.rfind(".")
+		if extIdx != -1:
+			fileName=fileName[:extIdx]
+		return fileName
+		
+	@staticmethod
+	def pathOnly(pathStr):
+		"""
+			Returns the path with filename and extension removed
+		"""
+		resultStr=""
+		backSlashCnt=FilePaths.countOccurances(pathStr, '\\')
+		forwardSlashCnt=FilePaths.countOccurances(pathStr, '\/')
+		
+		if backSlashCnt > forwardSlashCnt:
+			idx=pathStr.rfind('\\')
+			resultStr=pathStr[0:idx+1]
+		else:
+			idx=pathStr.rfind('\/')
+			resultStr=pathStr[0:idx+1]
 		return resultStr
 	
 class FileDialogManager(object):
@@ -246,57 +277,61 @@ class ReaderLibGDXAtlas(object):
 		self.curTextureAtlas=None
 		sectionName=None
 		curIndentation=0
-		file = open(fileName, "r")
-		for line in file:
-			if line and line.strip():
-				indentation=self.getIndentation(line)
-				locResult=self.getListFromLine(line)
-				if locResult is not None:
-					if indentation == 0:
-						if indentation != curIndentation:
-							if self.curSubtexture is not None and self.curTextureAtlas is not None:
-								if self.curSubtexture.name in self.curTextureAtlas.subtextures:
-									self.curTextureAtlas.subtextures[self.curSubtexture.name].append(self.curSubtexture)
-								else:
-									self.curTextureAtlas.subtextures[self.curSubtexture.name] = [self.curSubtexture]
-								self.curSubtexture=None
-							if self.curTextureAtlas is not None:
-								textureAtlases.append(self.curTextureAtlas)
-								self.curTextureAtlas=None
-						if self.curTextureAtlas is None and sectionName:
-							self.curTextureAtlas = TextureLibGDXAtlas()
-							self.curTextureAtlas.fileName = sectionName
-						if self.curTextureAtlas:
-							self.textureAtlasParamToObj(locResult)
+		try:
+			file = open(fileName, "r")
+		except IOError as err:
+			print(str(err))
+		else:
+			for line in file:
+				if line and line.strip():
+					indentation=self.getIndentation(line)
+					locResult=self.getListFromLine(line)
+					if locResult is not None:
+						if indentation == 0:
+							if indentation != curIndentation:
+								if self.curSubtexture is not None and self.curTextureAtlas is not None:
+									if self.curSubtexture.name in self.curTextureAtlas.subtextures:
+										self.curTextureAtlas.subtextures[self.curSubtexture.name].append(self.curSubtexture)
+									else:
+										self.curTextureAtlas.subtextures[self.curSubtexture.name] = [self.curSubtexture]
+									self.curSubtexture=None
+								if self.curTextureAtlas is not None:
+									textureAtlases.append(self.curTextureAtlas)
+									self.curTextureAtlas=None
+							if self.curTextureAtlas is None and sectionName:
+								self.curTextureAtlas = TextureLibGDXAtlas()
+								self.curTextureAtlas.fileName = sectionName
+							if self.curTextureAtlas:
+								self.textureAtlasParamToObj(locResult)
+							curIndentation=0
+								
+						elif indentation > 0:
+							if indentation != curIndentation:
+								if self.curSubtexture is not None and self.curTextureAtlas is not None:
+									if self.curSubtexture.name in self.curTextureAtlas.subtextures:
+										self.curTextureAtlas.subtextures[self.curSubtexture.name].append(self.curSubtexture)
+									else:
+										self.curTextureAtlas.subtextures[self.curSubtexture.name] = [self.curSubtexture]
+									self.curSubtexture=None
+							if self.curSubtexture is None and sectionName:
+								self.curSubtexture = SubtextureInfo()
+								self.curSubtexture.name = sectionName
+							if self.curSubtexture:
+								self.subtextureParamToObj(locResult)
+							curIndentation=indentation
+					else:
+						sectionName = line.strip()
 						curIndentation=0
-							
-					elif indentation > 0:
-						if indentation != curIndentation:
-							if self.curSubtexture is not None and self.curTextureAtlas is not None:
-								if self.curSubtexture.name in self.curTextureAtlas.subtextures:
-									self.curTextureAtlas.subtextures[self.curSubtexture.name].append(self.curSubtexture)
-								else:
-									self.curTextureAtlas.subtextures[self.curSubtexture.name] = [self.curSubtexture]
-								self.curSubtexture=None
-						if self.curSubtexture is None and sectionName:
-							self.curSubtexture = SubtextureInfo()
-							self.curSubtexture.name = sectionName
-						if self.curSubtexture:
-							self.subtextureParamToObj(locResult)
-						curIndentation=indentation
+			if self.curSubtexture is not None and self.curTextureAtlas is not None:
+				if self.curSubtexture.name in self.curTextureAtlas.subtextures:
+					self.curTextureAtlas.subtextures[self.curSubtexture.name].append(self.curSubtexture)
 				else:
-					sectionName = line.strip()
-					curIndentation=0
-		if self.curSubtexture is not None and self.curTextureAtlas is not None:
-			if self.curSubtexture.name in self.curTextureAtlas.subtextures:
-				self.curTextureAtlas.subtextures[self.curSubtexture.name].append(self.curSubtexture)
-			else:
-				self.curTextureAtlas.subtextures[self.curSubtexture.name] = [self.curSubtexture]
-			self.curSubtexture=None
-		if self.curTextureAtlas is not None:
-			textureAtlases.append(self.curTextureAtlas)
-			self.curTextureAtlas=None
-		file.close()
+					self.curTextureAtlas.subtextures[self.curSubtexture.name] = [self.curSubtexture]
+				self.curSubtexture=None
+			if self.curTextureAtlas is not None:
+				textureAtlases.append(self.curTextureAtlas)
+				self.curTextureAtlas=None
+			file.close()
 		return textureAtlases
 							
 								
@@ -396,6 +431,7 @@ class edit_libgdx_atlas(object):
 		for item in self.textureAtlases:
 			item.clear()
 		self.listStore.clear()
+		self.removePreviews()
 		pass
 		
 	def buttonClearListData(self, widget, data=None):
@@ -443,15 +479,22 @@ class edit_libgdx_atlas(object):
 			
 	def buttonLoadAtlas(self, widget, data=None):
 		localFileName = self.fileDialog.openFile()
-		if localFileName is not None:
-			reader = ReaderLibGDXAtlas()
-			self.textureAtlases = reader.readFile(localFileName)
-			
-			texture = self.textureAtlases[self.textureIdx]
-			for key in texture.subtextures:
-				for subtexture in texture.subtextures[key]:
-					self.listStore.append ([subtexture.name, subtexture.index, subtexture.xy[0], subtexture.xy[1], subtexture.size[0], subtexture.size[1]])
-			self.updatePreviewLayer(widget)
+		self.loadAtlasFile(localFileName)
+	
+	def loadAtlasFile(self, fileName):
+		try:
+			if fileName:
+				reader = ReaderLibGDXAtlas()
+				self.textureAtlases = reader.readFile(fileName)
+				
+				if len(self.textureAtlases) > 0:
+					texture = self.textureAtlases[self.textureIdx]
+					for key in texture.subtextures:
+						for subtexture in texture.subtextures[key]:
+							self.listStore.append ([subtexture.name, int(subtexture.index), int(subtexture.xy[0]), int(subtexture.xy[1]), int(subtexture.size[0]), int(subtexture.size[1])])
+					self.updatePreviewLayer(None)
+		except Exception as exp:
+			error_box("Exception: "+str(exp))
 		
 	def buttonSaveAtlas(self, widget, data=None):
 		localFileName = self.fileDialog.saveFile()
@@ -470,7 +513,7 @@ class edit_libgdx_atlas(object):
 		
 		if len(self.textureAtlases) == 0:
 			textureAtlas=TextureLibGDXAtlas()
-			textureAtlas.fileName=FilePaths.fileNameOnly(pdb.gimp_image_get_filename(self.img))
+			textureAtlas.fileName=FilePaths.fileNameWithExt(pdb.gimp_image_get_filename(self.img))
 			textureAtlas.size=(self.img.width,self.img.height)
 			self.textureAtlases.append(textureAtlas)
 			
@@ -491,15 +534,18 @@ class edit_libgdx_atlas(object):
 					break
 				listStoreIndex+=1
 			if isListStoreFound:
-				self.listStore[listStoreIndex]=[tempSubtexture.name, tempSubtexture.index, tempSubtexture.xy[0], tempSubtexture.xy[1], tempSubtexture.size[0], tempSubtexture.size[1]]
+				self.listStore[listStoreIndex]=[tempSubtexture.name, int(tempSubtexture.index), int(tempSubtexture.xy[0]), int(tempSubtexture.xy[1]), int(tempSubtexture.size[0]), int(tempSubtexture.size[1])]
 			return True
 		else:
 			if tempSubtexture.name not in self.textureAtlases[textureIdx].subtextures:
 				self.textureAtlases[textureIdx].subtextures[tempSubtexture.name] = [tempSubtexture]
 			else:
 				self.textureAtlases[textureIdx].subtextures[tempSubtexture.name].append(tempSubtexture)
-			self.listStore.append ([tempSubtexture.name, tempSubtexture.index, tempSubtexture.xy[0], tempSubtexture.xy[1], tempSubtexture.size[0], tempSubtexture.size[1]])
+			self.listStore.append ([tempSubtexture.name, int(tempSubtexture.index), int(tempSubtexture.xy[0]), int(tempSubtexture.xy[1]), int(tempSubtexture.size[0]), int(tempSubtexture.size[1])])
 			return True
+			
+	def scrollWinSizeAllocate(self, widget, allocate, data=None):
+		print("Scroll Window Size allocate width: "+str(allocate.width)+" height: "+str(allocate.height))
 
 	def showDialog(self):
 		try:
@@ -519,25 +565,25 @@ class edit_libgdx_atlas(object):
 			self.loadSelectBtn = gtk.Button("Selection to Data")
 			self.loadSelectBtn.connect("clicked", self.buttonLoadSelection)
 			self.loadSelectBtn.show()
-			self.table.attach(self.loadSelectBtn, 1, 2, 0, 1)
+			self.table.attach(self.loadSelectBtn, 1, 2, 0, 1,yoptions=0)
 			
 			#Data to Selection Button
 			self.dataToSelectBtn = gtk.Button("Data to Selection")
 			self.dataToSelectBtn.connect("clicked", self.buttonDataToSelection)
 			self.dataToSelectBtn.show()
-			self.table.attach(self.dataToSelectBtn, 2, 3, 0, 1)
+			self.table.attach(self.dataToSelectBtn, 2, 3, 0, 1,yoptions=0)
 			
 			#Image Name Row
 			self.nameLabel = self.make_label("Name:")
-			self.table.attach(self.nameLabel, 0, 1, 1, 2)
+			self.table.attach(self.nameLabel, 0, 1, 1, 2,yoptions=0)
 			
 			self.nameEntry=gtk.Entry()
 			self.nameEntry.show()
-			self.table.attach(self.nameEntry, 1, 2, 1, 2)
+			self.table.attach(self.nameEntry, 1, 2, 1, 2,yoptions=0)
 			
 			#Index Row
 			self.indexLabel = self.make_label("Index:")
-			self.table.attach(self.indexLabel, 0, 1, 2, 3)
+			self.table.attach(self.indexLabel, 0, 1, 2, 3,yoptions=0)
 			
 			self.indexSpinner = self.make_slider_and_spinner(0, 0.0, 1000, 1.0, 10.0, 0)
 			self.indexSpinner['adj'].set_value(1)
@@ -545,36 +591,36 @@ class edit_libgdx_atlas(object):
 			#self.indexSpinner['adj'].connect("value_changed", self.updatePreviewLayer)
 
 			self.indexLabel.set_mnemonic_widget(self.indexSpinner['spinner'])
-			self.table.attach(self.indexSpinner['slider'], 1, 2, 2, 3)
-			self.table.attach(self.indexSpinner['spinner'], 2, 3, 2, 3)
+			self.table.attach(self.indexSpinner['slider'], 1, 2, 2, 3,yoptions=0)
+			self.table.attach(self.indexSpinner['spinner'], 2, 3, 2, 3,yoptions=0)
 			
 			#X Row
 			self.xLabel = self.make_label("X:")
-			self.table.attach(self.xLabel, 0, 1, 3, 4)
+			self.table.attach(self.xLabel, 0, 1, 3, 4,yoptions=0)
 			self.xSpinner = self.make_slider_and_spinner(0.0, 0.0, self.img.width, 1.0, 10.0, 0)
 			self.xSpinner['adj'].set_value(0)
 			self.xSpinner['spinner'].set_value(0)
 			#self.xSpinner['adj'].connect("value_changed", self.updatePreviewLayer)
 
 			self.xLabel.set_mnemonic_widget(self.xSpinner['spinner'])
-			self.table.attach(self.xSpinner['slider'], 1, 2, 3, 4)
-			self.table.attach(self.xSpinner['spinner'], 2, 3, 3, 4)
+			self.table.attach(self.xSpinner['slider'], 1, 2, 3, 4,yoptions=0)
+			self.table.attach(self.xSpinner['spinner'], 2, 3, 3, 4,yoptions=0)
 			
 			#Y Row
 			self.yLabel = self.make_label("Y:")
-			self.table.attach(self.yLabel, 0, 1, 4, 5)
+			self.table.attach(self.yLabel, 0, 1, 4, 5,yoptions=0)
 			self.ySpinner = self.make_slider_and_spinner(0.0, 0.0, self.img.height, 1.0, 10.0, 0)
 			self.ySpinner['adj'].set_value(0)
 			self.ySpinner['spinner'].set_value(0)
 			#self.ySpinner['adj'].connect("value_changed", self.updatePreviewLayer)
 
 			self.yLabel.set_mnemonic_widget(self.ySpinner['spinner'])
-			self.table.attach(self.ySpinner['slider'], 1, 2, 4, 5)
-			self.table.attach(self.ySpinner['spinner'], 2, 3, 4, 5)
+			self.table.attach(self.ySpinner['slider'], 1, 2, 4, 5,yoptions=0)
+			self.table.attach(self.ySpinner['spinner'], 2, 3, 4, 5,yoptions=0)
 			
 			#Size Width Row
 			self.widthLabel = self.make_label("Size Width:")
-			self.table.attach(self.widthLabel, 0, 1, 5, 6)
+			self.table.attach(self.widthLabel, 0, 1, 5, 6,yoptions=0)
 			
 			self.widthSpinner = self.make_slider_and_spinner(0.0, 0.0, self.img.height, 1.0, 10.0, 0)
 			self.widthSpinner['adj'].set_value(0)
@@ -582,12 +628,12 @@ class edit_libgdx_atlas(object):
 			#self.widthSpinner['adj'].connect("value_changed", self.updatePreviewLayer)
 			
 			self.widthLabel.set_mnemonic_widget(self.widthSpinner['spinner'])
-			self.table.attach(self.widthSpinner['slider'], 1, 2, 5, 6)
-			self.table.attach(self.widthSpinner['spinner'], 2, 3, 5, 6)
+			self.table.attach(self.widthSpinner['slider'], 1, 2, 5, 6,yoptions=0)
+			self.table.attach(self.widthSpinner['spinner'], 2, 3, 5, 6,yoptions=0)
 			
 			#Size Height
 			self.heightLabel = self.make_label("Height:")
-			self.table.attach(self.heightLabel, 0, 1, 6, 7)
+			self.table.attach(self.heightLabel, 0, 1, 6, 7,yoptions=0)
 			
 			self.heightSpinner = self.make_slider_and_spinner(0.0, 0.0, self.img.height, 1.0, 10.0, 0)
 			self.heightSpinner['adj'].set_value(0)
@@ -595,38 +641,46 @@ class edit_libgdx_atlas(object):
 			#self.heightSpinner['adj'].connect("value_changed", self.updatePreviewLayer)
 			
 			self.heightLabel.set_mnemonic_widget(self.heightSpinner['spinner'])
-			self.table.attach(self.heightSpinner['slider'], 1, 2, 6, 7)
-			self.table.attach(self.heightSpinner['spinner'], 2, 3, 6, 7)
+			self.table.attach(self.heightSpinner['slider'], 1, 2, 6, 7,yoptions=0)
+			self.table.attach(self.heightSpinner['spinner'], 2, 3, 6, 7,yoptions=0)
 			
 			#Button Row - List Button Control - Save/Load/Remove from list
 			self.saveListBtn = gtk.Button("Save")
 			self.saveListBtn.connect("clicked", self.buttonSaveListData)
 			self.saveListBtn.show()
-			self.table.attach(self.saveListBtn, 0, 1, 7, 8)
+			self.table.attach(self.saveListBtn, 0, 1, 7, 8,yoptions=0)
 			
 			self.clearListBtn = gtk.Button("Clear List")
 			self.clearListBtn.connect("clicked", self.buttonClearListData)
 			self.clearListBtn.show()
-			self.table.attach(self.clearListBtn, 1, 2, 7, 8)
+			self.table.attach(self.clearListBtn, 1, 2, 7, 8,yoptions=0)
 			
 			self.removeListBtn = gtk.Button("Remove Item")
 			self.removeListBtn.connect("clicked", self.buttonRemoveListData)
 			self.removeListBtn.show()
-			self.table.attach(self.removeListBtn, 2, 3, 7, 8)
+			self.table.attach(self.removeListBtn, 2, 3, 7, 8,yoptions=0)
 			
 			
 			#List view
 			self.listStore = gtk.ListStore(str, int, int, int, int, int )
 			
 			#Test Data to debug with
-			#self.listStore.append (["Walk", 0, 2, 2, 30, 30])
-			#self.listStore.append (["Walk", 1, 42, 2, 30, 30])
 			
+			"""
 			tempSub = SubtextureInfo("Walk", 0, 2, 3, 24, 30)
 			self.saveRowToListStore(0,tempSub)
 			
 			tempSub = SubtextureInfo("Walk", 1, 42, 3, 30, 24)
 			self.saveRowToListStore(0,tempSub)
+			
+			tempSub = SubtextureInfo("Walk", 1, 42, 3, 30, 24)
+			self.saveRowToListStore(0,tempSub)
+			"""
+			
+			self.scrolledWin=gtk.ScrolledWindow()
+			self.scrolledWin.set_policy(1, 0)
+			#self.scrolledWin.set_resize_mode(gtk.RESIZE_IMMEDIATE)
+			#self.scrolledWin.set_vexpand(True)
 			
 			self.treeView = gtk.TreeView()
 			self.treeView.set_model(self.listStore)
@@ -645,27 +699,32 @@ class edit_libgdx_atlas(object):
 			self.treeView.append_column(self.yColumn)
 			self.treeView.append_column(self.widthColumn)
 			self.treeView.append_column(self.heightColumn)
-			self.table.attach(self.treeView, 0, 3, 8, 9)
+			
+			#self.table.attach(self.treeView, 0, 3, 8, 9)
+			self.scrolledWin.add(self.treeView)
+			self.table.attach(self.scrolledWin, 0, 3, 8, 9)
 			
 			#Button Row - Load/Save Atlas/Generate Onion Layer
 			self.loadAtlasBtn = gtk.Button("Load Atlas")
 			self.loadAtlasBtn.connect("clicked", self.buttonLoadAtlas)
 			self.loadAtlasBtn.show()
-			self.table.attach(self.loadAtlasBtn, 0, 1, 9, 10)
+			self.table.attach(self.loadAtlasBtn, 0, 1, 9, 10,yoptions=0)
 			
 			#Button Save Atlas
 			self.saveAtlasBtn = gtk.Button("Save Atlas")
 			self.saveAtlasBtn.connect("clicked", self.buttonSaveAtlas)
 			self.saveAtlasBtn.show()
-			self.table.attach(self.saveAtlasBtn, 1, 2, 9, 10)
+			self.table.attach(self.saveAtlasBtn, 1, 2, 9, 10,yoptions=0)
 			
 			#Button Generate Onion Layer
 			self.onionLayerBtn = gtk.Button("Generate Onion Layer")
 			self.onionLayerBtn.connect("clicked", self.buttonOnionLayer)
 			self.onionLayerBtn.show()
-			self.table.attach(self.onionLayerBtn, 2, 3, 9, 10)
+			self.table.attach(self.onionLayerBtn, 2, 3, 9, 10,yoptions=0)
 			
 			#Window only
+			self.dialog.add(self.table)
+			"""
 			self.dialog.vbox = gtk.VBox(False, 9)
 			self.dialog.vbox.show()
 			self.dialog.add(self.dialog.vbox)
@@ -680,15 +739,37 @@ class edit_libgdx_atlas(object):
 			self.dialog.vbox.hboxButtons.show()
 			
 			self.dialog.vbox.pack_start(self.dialog.vbox.hboxButtons, True, True, 3)
+			"""
+			
+			#Set default height of whole window so 5 items show in the TreeView
+			#This is a work around instead of giving self.scrollWin a height of 100
+			self.dialog.set_property("default-height", 349)
 			
 			self.dialog.show_all()
 			self.dialog.set_keep_above(True)
+			
+			#Set scroll window minimum height with realization
+			"""
+			treePath = self.listStore.get_path(self.listStore.get_iter_first())
+			cellRect = self.treeView.get_cell_area(treePath, self.nameColumn)
+			widgetSize=self.treeView.get_size_request()
+			self.scrolledWin.set_size_request(widgetSize[0], widgetSize[1]+(cellRect.height*5))
+			self.clearData()
+			"""
+			
+			self.postWindowProcessing()
+
+			#Set scroll window Minimum height with out realization
+			#self.scrolledWin.set_property("height-request", 100)
+			
 			while self.isRunning:
 				gtk.main_iteration_do(False)
 			if self.runmode != -1:
 				#self.dialog.run()
 				#gtk.main()
 				self.destroy()
+			else:
+				self.cleanUp()
 		except Exception as err:
 			print("select_move_layers_preview.dialog Exception: "+str(err))
 			
@@ -698,6 +779,13 @@ class edit_libgdx_atlas(object):
 		
 	def main_quit(self, gtkobject, data=None):
 		self.isRunning=False
+		
+	def postWindowProcessing(self):
+		filePath = pdb.gimp_image_get_filename(self.img)
+		pathName=FilePaths.pathOnly(filePath)
+		fileNameOnly=FilePaths.fileNameOnly(filePath)
+		atlasFilePath=pathName+fileNameOnly+".atlas"
+		self.loadAtlasFile(atlasFilePath)
 				
 	def updatePreviewLayer(self, widget, data=None):
 		self.previewLayer=self.generateOnionLayer(self.previewLayer, "Preview Layer", self.textureAtlases, self.textureIdx)
