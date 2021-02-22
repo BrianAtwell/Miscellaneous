@@ -425,7 +425,6 @@ class edit_libgdx_atlas(object):
 			int(self.widthSpinner['adj'].get_value()),
 			int(self.heightSpinner['adj'].get_value()))
 		self.saveRowToListStore(self.textureIdx, tempSub)
-		self.updatePreviewLayer(widget)
 		
 	def clearData(self):
 		for item in self.textureAtlases:
@@ -454,7 +453,7 @@ class edit_libgdx_atlas(object):
 		(treemodel, treeIter) = treeSelection.get_selected()
 		if treeIter is not None:
 			treemodel.remove(treeIter)
-		self.updatePreviewLayer(widget)
+		self.updatePreviewLayer(regenerate=True)
 	
 	def buttonLoadSelection(self, widget, data=None):
 		try:
@@ -492,7 +491,7 @@ class edit_libgdx_atlas(object):
 					for key in texture.subtextures:
 						for subtexture in texture.subtextures[key]:
 							self.listStore.append ([subtexture.name, int(subtexture.index), int(subtexture.xy[0]), int(subtexture.xy[1]), int(subtexture.size[0]), int(subtexture.size[1])])
-					self.updatePreviewLayer(None)
+					self.updatePreviewLayer(regenerate=True)
 		except Exception as exp:
 			error_box("Exception: "+str(exp))
 		
@@ -526,6 +525,7 @@ class edit_libgdx_atlas(object):
 		
 		if isFound:
 			isListStoreFound=False
+			oldSubtexture=self.textureAtlases[textureIdx].subtextures[tempSubtexture.name][subtextureIdx]
 			self.textureAtlases[textureIdx].subtextures[tempSubtexture.name][subtextureIdx]=tempSubtexture
 			listStoreIndex=0
 			for listItem in self.listStore:
@@ -535,13 +535,18 @@ class edit_libgdx_atlas(object):
 				listStoreIndex+=1
 			if isListStoreFound:
 				self.listStore[listStoreIndex]=[tempSubtexture.name, int(tempSubtexture.index), int(tempSubtexture.xy[0]), int(tempSubtexture.xy[1]), int(tempSubtexture.size[0]), int(tempSubtexture.size[1])]
+			else:
+				self.listStore.append ([tempSubtexture.name, int(tempSubtexture.index), int(tempSubtexture.xy[0]), int(tempSubtexture.xy[1]), int(tempSubtexture.size[0]), int(tempSubtexture.size[1])])
+			self.updatePreviewLayer(newSubtexture=tempSubtexture, oldSubtexture=oldSubtexture)
 			return True
 		else:
 			if tempSubtexture.name not in self.textureAtlases[textureIdx].subtextures:
 				self.textureAtlases[textureIdx].subtextures[tempSubtexture.name] = [tempSubtexture]
+				self.updatePreviewLayer(newSubtexture=tempSubtexture)
 			else:
 				self.textureAtlases[textureIdx].subtextures[tempSubtexture.name].append(tempSubtexture)
 			self.listStore.append ([tempSubtexture.name, int(tempSubtexture.index), int(tempSubtexture.xy[0]), int(tempSubtexture.xy[1]), int(tempSubtexture.size[0]), int(tempSubtexture.size[1])])
+			self.updatePreviewLayer(newSubtexture=tempSubtexture)
 			return True
 			
 	def scrollWinSizeAllocate(self, widget, allocate, data=None):
@@ -787,8 +792,76 @@ class edit_libgdx_atlas(object):
 		atlasFilePath=pathName+fileNameOnly+".atlas"
 		self.loadAtlasFile(atlasFilePath)
 				
-	def updatePreviewLayer(self, widget, data=None):
-		self.previewLayer=self.generateOnionLayer(self.previewLayer, "Preview Layer", self.textureAtlases, self.textureIdx)
+	def updatePreviewLayer(self, newSubtexture=None, regenerate=False, oldSubtexture=None):
+		layerName="Preview Layer"
+		pdb.gimp_image_undo_freeze(self.img)
+		try:
+			#Save active layer
+			activeLayer=pdb.gimp_image_get_active_layer(self.img)
+			#Save selection
+			origSelectionChan=pdb.gimp_selection_save(self.img)
+			
+			if not self.layer_exists(self.previewLayer):
+				regenerate=True
+				
+			if newSubtexture is None:
+				regenerate=True
+			
+			#delete old layer
+			if regenerate and self.layer_exists(self.previewLayer):
+				self.img.remove_layer(self.previewLayer)
+			#generate layer
+			#( image,
+			#  width, 
+			#  height, 
+			#  Type { RGB-IMAGE (0), RGBA-IMAGE (1), GRAY-IMAGE (2), GRAYA-IMAGE (3), INDEXED-IMAGE (4), INDEXEDA-IMAGE (5) },
+			#  layer Name,
+			#  The layer opacity (0 <= opacity <= 100),
+			"""  The layer combination mode { LAYER-MODE-NORMAL-LEGACY (0), LAYER-MODE-DISSOLVE (1), LAYER-MODE-BEHIND-LEGACY (2), LAYER-MODE-MULTIPLY-LEGACY (3), LAYER-MODE-SCREEN-LEGACY (4), LAYER-MODE-OVERLAY-LEGACY (5), LAYER-MODE-DIFFERENCE-LEGACY (6), LAYER-MODE-ADDITION-LEGACY (7), LAYER-MODE-SUBTRACT-LEGACY (8), LAYER-MODE-DARKEN-ONLY-LEGACY (9), LAYER-MODE-LIGHTEN-ONLY-LEGACY (10), LAYER-MODE-HSV-HUE-LEGACY (11), LAYER-MODE-HSV-SATURATION-LEGACY (12), LAYER-MODE-HSL-COLOR-LEGACY (13), LAYER-MODE-HSV-VALUE-LEGACY (14), LAYER-MODE-DIVIDE-LEGACY (15), LAYER-MODE-DODGE-LEGACY (16), LAYER-MODE-BURN-LEGACY (17), LAYER-MODE-HARDLIGHT-LEGACY (18), LAYER-MODE-SOFTLIGHT-LEGACY (19), LAYER-MODE-GRAIN-EXTRACT-LEGACY (20), LAYER-MODE-GRAIN-MERGE-LEGACY (21), LAYER-MODE-COLOR-ERASE-LEGACY (22), LAYER-MODE-OVERLAY (23), LAYER-MODE-LCH-HUE (24), LAYER-MODE-LCH-CHROMA (25), LAYER-MODE-LCH-COLOR (26), LAYER-MODE-LCH-LIGHTNESS (27), LAYER-MODE-NORMAL (28), LAYER-MODE-BEHIND (29), LAYER-MODE-MULTIPLY (30), LAYER-MODE-SCREEN (31), LAYER-MODE-DIFFERENCE (32), LAYER-MODE-ADDITION (33), LAYER-MODE-SUBTRACT (34), LAYER-MODE-DARKEN-ONLY (35), LAYER-MODE-LIGHTEN-ONLY (36), LAYER-MODE-HSV-HUE (37), LAYER-MODE-HSV-SATURATION (38), LAYER-MODE-HSL-COLOR (39), LAYER-MODE-HSV-VALUE (40), LAYER-MODE-DIVIDE (41), LAYER-MODE-DODGE (42), LAYER-MODE-BURN (43), LAYER-MODE-HARDLIGHT (44), LAYER-MODE-SOFTLIGHT (45), LAYER-MODE-GRAIN-EXTRACT (46), LAYER-MODE-GRAIN-MERGE (47), LAYER-MODE-VIVID-LIGHT (48), LAYER-MODE-PIN-LIGHT (49), LAYER-MODE-LINEAR-LIGHT (50), LAYER-MODE-HARD-MIX (51), LAYER-MODE-EXCLUSION (52), LAYER-MODE-LINEAR-BURN (53), LAYER-MODE-LUMA-DARKEN-ONLY (54), LAYER-MODE-LUMA-LIGHTEN-ONLY (55), LAYER-MODE-LUMINANCE (56), LAYER-MODE-COLOR-ERASE (57), LAYER-MODE-ERASE (58), LAYER-MODE-MERGE (59), LAYER-MODE-SPLIT (60), LAYER-MODE-PASS-THROUGH (61), LAYER-MODE-REPLACE (62), LAYER-MODE-ANTI-ERASE (63) })
+			"""
+			#(image, image width, image height, RGB-Image, "Preview Onion Layer", 100% full Opacity, Normal Mode)
+			if regenerate:
+				self.previewLayer = pdb.gimp_layer_new(self.img, self.img.width, self.img.height, 1, layerName, 50.0, 28)
+				pdb.gimp_image_insert_layer(self.img, self.previewLayer, None,0)
+				
+			bngColor = pdb.gimp_context_get_background()
+				
+			if oldSubtexture is not None:
+				pdb.gimp_selection_none(self.img)
+				selection=pdb.gimp_image_select_rectangle(self.img, 2, int(newSubtexture.xy[0]), int(newSubtexture.xy[1]), int(newSubtexture.size[0]), int(newSubtexture.size[1]))
+				pdb.gimp_drawable_edit_clear(self.previewLayer)
+			
+			if newSubtexture is not None and not regenerate:
+				#Replace Selection
+				pdb.gimp_selection_none(self.img)
+				selection=pdb.gimp_image_select_rectangle(self.img, 2, int(newSubtexture.xy[0]), int(newSubtexture.xy[1]), int(newSubtexture.size[0]), int(newSubtexture.size[1]))
+				fillColor=gimpcolor.RGB(random.randrange(0, 255),random.randrange(0, 255),random.randrange(0, 255))
+				pdb.gimp_context_set_background(fillColor)
+				pdb.gimp_drawable_edit_fill(self.previewLayer, 1)
+			else:
+				##Read Each subtexture and convert to a rectangle
+				texture=self.textureAtlases[self.textureIdx]
+				for key in texture.subtextures:
+					for subtexture in texture.subtextures[key]:
+						#Replace Selection
+						pdb.gimp_selection_none(self.img)
+						selection=pdb.gimp_image_select_rectangle(self.img, 2, int(subtexture.xy[0]), int(subtexture.xy[1]), int(subtexture.size[0]), int(subtexture.size[1]))
+						fillColor=gimpcolor.RGB(random.randrange(0, 255),random.randrange(0, 255),random.randrange(0, 255))
+						pdb.gimp_context_set_background(fillColor)
+						pdb.gimp_drawable_edit_fill(self.previewLayer, 1)
+			pdb.gimp_selection_none(self.img)
+			
+			#Restore gimp original state
+			pdb.gimp_context_set_background(bngColor)
+			pdb.gimp_image_set_active_layer(self.img, activeLayer)
+			pdb.gimp_image_select_item(self.img, 2, origSelectionChan)
+			self.img.remove_channel(origSelectionChan)
+		except Exception as exp:
+			error_box("Exception: "+str(exp))
+		
+		#Update Gimp GUI
+		gimp.displays_flush()
+		pdb.gimp_image_undo_thaw(self.img)
 	
 	def generateOnionLayer(self, onionLayer, layerName, textureAtlases, textureIdx):
 		pdb.gimp_image_undo_freeze(self.img)
