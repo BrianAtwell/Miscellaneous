@@ -46,6 +46,7 @@ import sys
 from threading import Thread
 import gobject, glib
 import random
+import traceback
 
 INDENTATIONSTR = "  "
 
@@ -249,7 +250,7 @@ class ReaderLibGDXAtlas(object):
 		
 	def textureAtlasParamToObj(self, list):
 		if list[0] == "size" and len(list) == 3:
-			self.curTextureAtlas.size=(list[1], list[2])
+			self.curTextureAtlas.size=(int(list[1]), int(list[2]))
 		elif list[0] == "format" and len(list) == 2:
 			self.curTextureAtlas.format=list[1]
 		elif list[0] == "filter" and len(list) == 3:
@@ -261,15 +262,15 @@ class ReaderLibGDXAtlas(object):
 		if list[0] == "rotate" and len(list) == 2:
 			self.curSubtexture.rotate=list[1]
 		elif list[0] == "xy" and len(list) == 3:
-			self.curSubtexture.xy=(list[1], list[2])
+			self.curSubtexture.xy=(int(list[1]), int(list[2]))
 		elif list[0] == "size" and len(list) == 3:
-			self.curSubtexture.size=(list[1], list[2])
+			self.curSubtexture.size=(int(list[1]), int(list[2]))
 		elif list[0] == "orig" and len(list) == 3:
-			self.curSubtexture.orig=(list[1], list[2])
+			self.curSubtexture.orig=(int(list[1]), int(list[2]))
 		elif list[0] == "offset" and len(list) == 3:
-			self.curSubtexture.offset=(list[1], list[2])
+			self.curSubtexture.offset=(int(list[1]), int(list[2]))
 		elif list[0] == "index" and len(list) == 2:
-			self.curSubtexture.index=list[1]
+			self.curSubtexture.index=int(list[1])
 	
 	def readFile(self, fileName):
 		textureAtlases=[]
@@ -280,6 +281,7 @@ class ReaderLibGDXAtlas(object):
 		try:
 			file = open(fileName, "r")
 		except IOError as err:
+			error_box(traceback.format_exc())
 			print(str(err))
 		else:
 			for line in file:
@@ -451,9 +453,7 @@ class edit_libgdx_atlas(object):
 	def buttonRemoveListData(self, widget, data=None):
 		treeSelection = self.treeView.get_selection()
 		(treemodel, treeIter) = treeSelection.get_selected()
-		if treeIter is not None:
-			treemodel.remove(treeIter)
-		self.updatePreviewLayer(regenerate=True)
+		self.removeRowFromListStore(treemodel, treeIter, self.textureIdx)
 	
 	def buttonLoadSelection(self, widget, data=None):
 		try:
@@ -464,6 +464,7 @@ class edit_libgdx_atlas(object):
 				self.widthSpinner['adj'].set_value(abs(x2-x1))
 				self.heightSpinner['adj'].set_value(abs(y2-y1))
 		except Exception as exp:
+			error_box(traceback.format_exc())
 			error_box("Exception: "+str(exp))
 			
 	def buttonDataToSelection(self, widget, data=None):
@@ -474,6 +475,7 @@ class edit_libgdx_atlas(object):
 			height=self.heightSpinner['adj'].get_value()
 			pdb.gimp_image_select_rectangle(self.img, 2, x, y, width, height)
 		except Exception as exp:
+			error_box(traceback.format_exc())
 			error_box("Exception: "+str(exp))
 			
 	def buttonLoadAtlas(self, widget, data=None):
@@ -493,6 +495,7 @@ class edit_libgdx_atlas(object):
 							self.listStore.append ([subtexture.name, int(subtexture.index), int(subtexture.xy[0]), int(subtexture.xy[1]), int(subtexture.size[0]), int(subtexture.size[1])])
 					self.updatePreviewLayer(regenerate=True)
 		except Exception as exp:
+			error_box(traceback.format_exc())
 			error_box("Exception: "+str(exp))
 		
 	def buttonSaveAtlas(self, widget, data=None):
@@ -518,7 +521,7 @@ class edit_libgdx_atlas(object):
 			
 		if tempSubtexture.name in self.textureAtlases[textureIdx].subtextures:
 			for subtexture in self.textureAtlases[textureIdx].subtextures[tempSubtexture.name]:
-				if subtexture.name == tempSubtexture.name and subtexture.index == tempSubtexture.index:
+				if subtexture.name == tempSubtexture.name and int(subtexture.index) == int(tempSubtexture.index):
 					isFound=True
 					break
 				subtextureIdx+=1
@@ -529,7 +532,7 @@ class edit_libgdx_atlas(object):
 			self.textureAtlases[textureIdx].subtextures[tempSubtexture.name][subtextureIdx]=tempSubtexture
 			listStoreIndex=0
 			for listItem in self.listStore:
-				if listItem[0] == tempSubtexture.name and listItem[1] == tempSubtexture.index:
+				if listItem[0] == tempSubtexture.name and int(listItem[1]) == int(tempSubtexture.index):
 					isListStoreFound=True
 					break
 				listStoreIndex+=1
@@ -548,6 +551,25 @@ class edit_libgdx_atlas(object):
 			self.listStore.append ([tempSubtexture.name, int(tempSubtexture.index), int(tempSubtexture.xy[0]), int(tempSubtexture.xy[1]), int(tempSubtexture.size[0]), int(tempSubtexture.size[1])])
 			self.updatePreviewLayer(newSubtexture=tempSubtexture)
 			return True
+			
+	def removeRowFromListStore(self, treemodel, treeIter, textureIdx):
+		if treeIter is not None:
+			oldSubtexture=None
+			animName=treemodel[treeIter][0]
+			if animName in self.textureAtlases[textureIdx].subtextures:
+				subtextureIdx=0
+				subtextureFound=False
+				for subtexture in self.textureAtlases[textureIdx].subtextures[animName]:
+					if int(subtexture.index) == int(treemodel[treeIter][1]):
+						subtextureFound=True
+						break
+					subtextureIdx+=1
+				if subtextureFound:
+					oldSubtexture=self.textureAtlases[textureIdx].subtextures[animName].pop(subtextureIdx)
+					if len(self.textureAtlases[textureIdx].subtextures[animName] ) == 0:
+						del self.textureAtlases[textureIdx].subtextures[animName]
+			treemodel.remove(treeIter)
+			self.updatePreviewLayer(oldSubtexture=oldSubtexture)
 			
 	def scrollWinSizeAllocate(self, widget, allocate, data=None):
 		print("Scroll Window Size allocate width: "+str(allocate.width)+" height: "+str(allocate.height))
@@ -776,6 +798,7 @@ class edit_libgdx_atlas(object):
 			else:
 				self.cleanUp()
 		except Exception as err:
+			error_box(traceback.format_exc())
 			print("select_move_layers_preview.dialog Exception: "+str(err))
 			
 	def destroy(self):
@@ -798,13 +821,14 @@ class edit_libgdx_atlas(object):
 		try:
 			#Save active layer
 			activeLayer=pdb.gimp_image_get_active_layer(self.img)
+			#activeLayer=self.img.active_layer
 			#Save selection
 			origSelectionChan=pdb.gimp_selection_save(self.img)
 			
 			if not self.layer_exists(self.previewLayer):
 				regenerate=True
 				
-			if newSubtexture is None:
+			if newSubtexture is None and oldSubtexture is None:
 				regenerate=True
 			
 			#delete old layer
@@ -826,19 +850,21 @@ class edit_libgdx_atlas(object):
 				
 			bngColor = pdb.gimp_context_get_background()
 				
+			#Clear pixels of an old subtexture
+			# It is removed or redrawn/changed
 			if oldSubtexture is not None:
 				pdb.gimp_selection_none(self.img)
-				selection=pdb.gimp_image_select_rectangle(self.img, 2, int(newSubtexture.xy[0]), int(newSubtexture.xy[1]), int(newSubtexture.size[0]), int(newSubtexture.size[1]))
+				selection=pdb.gimp_image_select_rectangle(self.img, 2, int(oldSubtexture.xy[0]), int(oldSubtexture.xy[1]), int(oldSubtexture.size[0]), int(oldSubtexture.size[1]))
 				pdb.gimp_drawable_edit_clear(self.previewLayer)
 			
-			if newSubtexture is not None and not regenerate:
+			if newSubtexture is not None:
 				#Replace Selection
 				pdb.gimp_selection_none(self.img)
 				selection=pdb.gimp_image_select_rectangle(self.img, 2, int(newSubtexture.xy[0]), int(newSubtexture.xy[1]), int(newSubtexture.size[0]), int(newSubtexture.size[1]))
 				fillColor=gimpcolor.RGB(random.randrange(0, 255),random.randrange(0, 255),random.randrange(0, 255))
 				pdb.gimp_context_set_background(fillColor)
 				pdb.gimp_drawable_edit_fill(self.previewLayer, 1)
-			else:
+			elif regenerate:
 				##Read Each subtexture and convert to a rectangle
 				texture=self.textureAtlases[self.textureIdx]
 				for key in texture.subtextures:
@@ -853,10 +879,18 @@ class edit_libgdx_atlas(object):
 			
 			#Restore gimp original state
 			pdb.gimp_context_set_background(bngColor)
-			pdb.gimp_image_set_active_layer(self.img, activeLayer)
+			try:
+				if activeLayer is not None:
+					pdb.gimp_image_set_active_layer(self.img, activeLayer)
+			except Exception as exp:
+				error_box(traceback.format_exc())
+				error_box("Exception: "+str(exp))
+				error_box("pdb.gimp_image_set_active_layer("+str(self.img)+","+str(activeLayer)+")")
+			#self.img.set_component_active(activeLayer)
 			pdb.gimp_image_select_item(self.img, 2, origSelectionChan)
 			self.img.remove_channel(origSelectionChan)
 		except Exception as exp:
+			error_box(traceback.format_exc())
 			error_box("Exception: "+str(exp))
 		
 		#Update Gimp GUI
@@ -906,6 +940,7 @@ class edit_libgdx_atlas(object):
 			pdb.gimp_image_select_item(self.img, 2, origSelectionChan)
 			self.img.remove_channel(origSelectionChan)
 		except Exception as exp:
+			error_box(traceback.format_exc())
 			error_box("Exception: "+str(exp))
 		
 		#Update Gimp GUI
